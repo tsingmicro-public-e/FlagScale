@@ -14,6 +14,7 @@ from megatron.core.enums import ModelType
 from megatron.core.models.gpt import GPTModel
 from megatron.core.rerun_state_machine import get_rerun_state_machine
 from megatron.core.utils import get_attr_wrapped_model, StragglerDetector
+#from megatron.training.tokenizer.tokenizer import build_tokenizer
 from megatron.core.tokenizers.text.utils.build_tokenizer import build_tokenizer
 from megatron.training import get_args, get_timers, get_tokenizer, print_rank_0
 from megatron.training.utils import (
@@ -118,7 +119,13 @@ def loss_func(
         )
 
     num_tokens = loss_mask.sum().clone().detach().to(torch.int)
-    reporting_loss = torch.cat([loss.clone().detach().view(1), num_tokens.view(1)])
+    #reporting_loss = torch.cat([loss.clone().detach().view(1), num_tokens.view(1)])  ##NOTE(malin) commented out
+
+    ##NOTE(malin) add TODO del
+    device = loss.device
+    reporting_loss = torch.cat([loss.clone().detach().view(1).cpu(), num_tokens.view(1).cpu()])
+    reporting_loss = reporting_loss.to(device) 
+    ##NOTE(malin) add TODO del
 
     return (loss, num_tokens, {'lm loss': reporting_loss})
 

@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 from megatron.plugin.platform import get_platform
 cur_platform = get_platform()
 
+
 def initialize_megatron(
     extra_args_provider=None,
     args_defaults={},

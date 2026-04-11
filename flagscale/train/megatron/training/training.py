@@ -791,7 +791,6 @@ def pretrain(
         iteration = inprocess_call_wrapper.iteration
         store = torch.distributed.PrefixStore(str(iteration), store)
 
-
     initialize_megatron(
         extra_args_provider=extra_args_provider,
         args_defaults=args_defaults,
@@ -839,7 +838,7 @@ def pretrain(
         ft_integration.maybe_setup_simulated_fault()
 
     # Set pytorch JIT layer fusion options and warmup JIT functions.
-    set_jit_fusion_options()
+    #set_jit_fusion_options()  ##NOTE(malin) commented out
 
     # Adjust the startup time so it reflects the largest value.
     # This will be closer to what scheduler will see (outside of

@@ -1,0 +1,37 @@
+defaults:
+  - _self_
+  - train: 14b
+
+experiment:
+  exp_name: Qwen3-14b-Train
+  seed: 42
+  save_steps: 10000
+  load: null
+  exp_dir: ./outputs/outputs_qwen3_14b
+  ckpt_format: torch
+  task:
+    type: train
+    backend: megatron
+    entrypoint: flagscale/train/megatron/train_gpt.py
+  runner:
+    per_node_task: false
+    no_shared_fs: true
+    rdzv_backend: static
+    hostfile: ./examples/qwen3/conf/hostfile.txt
+    master_port: 8889
+    ssh_port: 2222
+  cmds:
+    before_start: ulimit -n 1048576
+  envs:
+    #LOGLEVEL: "DEBUG"
+    CUDA_DEVICE_MAX_CONNECTIONS: 1
+    TXDA_VISIBLE_DEVICES: "31"
+    TXDA_SKIP_OPS: "contiguous,cat,to.dtype"
+    MG_PLATFORM: "txda"
+    PYTHONPATH: "/login_home/malin/tsm_softwares/llvm-a66376b0-ubuntu-x64/python_packages/mlir_core:/login_home/malin/workspace/FlagOS/FlagScale:/login_home/malin/workspace/FlagOS/FlagScale/flagscale/train:/login_home/malin/workspace/FlagOS/Megatron-LM-FL"
+
+action: run
+
+hydra:
+  run:
+    dir: ${experiment.exp_dir}/hydra

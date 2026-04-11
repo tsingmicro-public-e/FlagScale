@@ -2382,7 +2382,6 @@ def _add_initialization_args(parser):
                        )
     group.add_argument('--init-method-xavier-uniform', action='store_true',
                        help='Enable Xavier uniform parameter initialization')
-
     return parser
 
 

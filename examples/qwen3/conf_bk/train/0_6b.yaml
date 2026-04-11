@@ -2,7 +2,7 @@ system:
   no_shared_fs: ${experiment.runner.no_shared_fs}
   num_workers: 16
   tensor_model_parallel_size: 1
-  pipeline_model_parallel_size: 2
+  pipeline_model_parallel_size: 1
   context_parallel_size: 1
   disable_bias_linear: true
   reset_position_ids: True
@@ -12,7 +12,7 @@ system:
   use_distributed_optimizer: true
   overlap_grad_reduce: true
   overlap_param_gather: true
-  finetune: true
+  finetune: false
   precision:
     bf16: true
     attention_softmax_in_fp32: true
@@ -35,15 +35,14 @@ system:
 
 model:
   transformer_impl: transformer_engine
-  num_layers: 54
-  hidden_size: 2560
-  ffn_hidden_size: 19456
+  num_layers: 28
+  hidden_size: 1024
+  ffn_hidden_size: 3072
   kv_channels: 128
-  group_query_attention: true
-  num_attention_heads: 32
+  num_attention_heads: 16
   num_query_groups: 8 # num_key_value_heads
   seq_length: 4096
-  max_position_embeddings: 32768
+  max_position_embeddings: 40960
   norm_epsilon: 1e-6
   use_rotary_position_embeddings: true
   rotary_base: 1000000
@@ -54,7 +53,7 @@ model:
   hidden_dropout: 0.0
   clip_grad: 1.0
   position_embedding_type: rope
-  untie_embeddings_and_output_weights: true
+  untie_embeddings_and_output_weights: false
   no_position_embedding: true
   no_rope_fusion: true
 
@@ -62,9 +61,9 @@ model:
   seed: ${experiment.seed}
   # finetune: false
   micro_batch_size: 1
-  global_batch_size: 16
+  global_batch_size: 2048
   eval_iters: 0
-  train_samples: 25600000 #1T #29297664 #120B tokens
+  train_samples: 244141056 #1T #29297664 #120B tokens
 
   optimizer:
     weight_decay: 0.1
@@ -78,13 +77,11 @@ model:
 
 
 data:
-  data_path: /path
+  data_path: /path/to/dataset
   split: 1
   no_mmap_bin_files: true
   tokenizer:
-    legacy_tokenizer: true
     tokenizer_type: QwenTokenizerFS
-    tokenizer_path: xxx
-    vocab_size: 151669
-    padded_vocab_size: 151936
+    tokenizer_path: Qwen3-0.6B
+    vocab_size: 151936
     make_vocab_size_divisible_by: 64

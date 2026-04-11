@@ -64,6 +64,7 @@ class MegatronBackend(BackendBase):
         assert os.path.exists(pkg_dir), f"PKG_DIR {pkg_dir} does not exist."
         megatron_dir = os.path.join(pkg_dir, "flagscale", "train")
         cmds_config = config.experiment.get("cmds", None)
+        #print(f"\n[ML-DEBUG]>>>> cmd_config={cmds_config}, cmd={cmd}")
         if cmds_config:
             before_start = cmds_config.get("before_start", "")
         else:

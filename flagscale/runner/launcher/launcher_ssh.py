@@ -130,6 +130,10 @@ def _get_runner_cmd_train(
 
     runner_cmd = ["torchrun"]
     for key, value in runner_args.items():
+        ##NOTE(malin) add Begin
+        if key == "no_shared_fs":
+            continue
+        ##NOTE(malin) add End
         if isinstance(value, bool):
             if value:
                 runner_cmd.append(f"--{key}")

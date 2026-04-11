@@ -66,6 +66,7 @@ def get_runner(config: DictConfig, task_type: str):
     runner_type = config.experiment.runner.get("type", "ssh")
 
     if runner_type == "cloud":
+        print(f"\n[ML-DEBUG]>>>> flagscale runner type clound !!!!")
         if task_type == "train":
             return CloudTrainRunner(config)
         elif task_type == "serve":
@@ -77,6 +78,7 @@ def get_runner(config: DictConfig, task_type: str):
             raise NotImplementedError(f"Task type '{task_type}' is not supported by cloud runner")
 
     if FLAGSCALE_USE_V1:
+        print(f"\n[ML-DEBUG]>>>> flagscale not cloud and run Runner !!!!")
         return Runner(config)
 
     logger.warning(

@@ -1,0 +1,38 @@
+defaults:
+  - _self_
+  - train: 0_6b
+
+experiment:
+  exp_name: Qwen3-06b-Train
+  seed: 42
+  save_steps: 10000
+  load: /login_home/malin/workspace/FlagOS/ckpts/qwen3_06b_mp4
+  exp_dir: ./outputs/outputs_qwen3_06b
+  ckpt_format: torch
+  task:
+    type: train
+    backend: megatron
+    entrypoint: flagscale/train/megatron/train_gpt.py
+  runner:
+    per_node_task: false
+    no_shared_fs: true
+    rdzv_backend: static
+    hostfile: ./examples/qwen3/conf/hostfile.txt
+    master_port: 8889
+    ssh_port: 2222
+  cmds:
+    #before_start: ulimit -n 1048576
+    before_start: "source /root/.bashrc"
+  envs:
+    #LOGLEVEL: "DEBUG"
+    CUDA_DEVICE_MAX_CONNECTIONS: 1
+    MG_PLATFORM: "txda"
+    TXDA_VISIBLE_DEVICES: "0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31"
+    TXDA_SKIP_OPS: "contiguous,cat,to.dtype"
+    
+
+action: run
+
+hydra:
+  run:
+    dir: ${experiment.exp_dir}/hydra
