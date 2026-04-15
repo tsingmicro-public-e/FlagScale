@@ -119,13 +119,7 @@ def loss_func(
         )
 
     num_tokens = loss_mask.sum().clone().detach().to(torch.int)
-    #reporting_loss = torch.cat([loss.clone().detach().view(1), num_tokens.view(1)])  ##NOTE(malin) commented out
-
-    ##NOTE(malin) add TODO del
-    device = loss.device
-    reporting_loss = torch.cat([loss.clone().detach().view(1).cpu(), num_tokens.view(1).cpu()])
-    reporting_loss = reporting_loss.to(device) 
-    ##NOTE(malin) add TODO del
+    reporting_loss = torch.cat([loss.clone().detach().view(1), num_tokens.view(1)])
 
     return (loss, num_tokens, {'lm loss': reporting_loss})
 
