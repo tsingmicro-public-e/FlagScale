@@ -36,7 +36,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 export TXDA_LAUNCH_KERNEL_SYNC=1
 export TXDA_SKIP_OPS="contiguous,cat,to.dtype"
 
-export PRECISION_PRIORITY=1
+#export PRECISION_PRIORITY=1
 #export DUMP_KERNEL_ARGS=1
 #export TRITON_DUMP_PATH=/root/.triton/dump 
 #export TRITON_ALWAYS_COMPILE=1
@@ -87,6 +87,7 @@ fi
 #--use-pytorch-profiler \
 #--profile-step-start 5 \
 #--profile-step-end 6 \
+#--use-flash-attn \
 torchrun \
         --nproc_per_node ${nproc} \
         --nnodes ${nnodes} \
@@ -99,6 +100,7 @@ torchrun \
         --pipeline-model-parallel-size $pp \
         --context-parallel-size 1 \
         ${DTYPE_CONFIG} \
+        --use-flash-attn \
         --disable-bias-linear \
         --reset-position-ids \
         --reset-attention-mask \
