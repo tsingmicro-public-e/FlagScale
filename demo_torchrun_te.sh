@@ -35,8 +35,13 @@ export MG_PLATFORM="txda"
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export TXDA_LAUNCH_KERNEL_SYNC=1
 export TXDA_SKIP_OPS="contiguous,cat,to.dtype"
+export LOGLEVEL=INFO
 
-#export PRECISION_PRIORITY=1
+export NVTE_FLASH_ATTN=1
+export NVTE_FUSED_ATTN=1
+export NVTE_UNFUSED_ATTN=1
+
+export PRECISION_PRIORITY=1
 #export DUMP_KERNEL_ARGS=1
 #export TRITON_DUMP_PATH=/root/.triton/dump 
 #export TRITON_ALWAYS_COMPILE=1
@@ -45,9 +50,9 @@ export TXDA_SKIP_OPS="contiguous,cat,to.dtype"
 
 ## ---- for debug log ----
 #export VS_DEBUG=1
-#export TX_LOG_LEVEL=info
-#export TX_LOG_PREFIX=1
-#export TX_LAUNCH_LOG_LEVEL=info
+export TX_LOG_LEVEL=info
+export TX_LOG_PREFIX=1
+export TX_LAUNCH_LOG_LEVEL=info
 #export PT_TXDA_LOG_LEVEL=FALLBACK
 #export NCCL_DEBUG=TRACE
 #export NCCL_DEBUG_FILE=$workdir/log/nccl_${timelog}_%h_%p.log
@@ -55,19 +60,20 @@ export TXDA_SKIP_OPS="contiguous,cat,to.dtype"
 
 
 nnodes=1
-nproc=1
+nproc=32
 tp=1
 pp=1
 dp=$((($nnodes*$nproc)/($tp*$pp)))
 mbs=4
-gbs=$((1*$mbs*$dp))
+gbs=$((4*$mbs*$dp))
 block=28
-seq_len=512
+seq_len=4096
 dtype=bf16
-iters=10
+iters=4
 
 data_path=/login_home/malin/datasets/llama3-datasets/wudao_llama3bpe_content_document
 tokenizer_path=/login_home/malin/datasets/Qwen3-0.6B
+#tokenizer_path=/login_home/malin/datasets/qwentokenizer
 
 config="${dtype}.dp${dp}tp${tp}pp${pp}.block${block}.gbs${gbs}.sq${seq_len}"
 outdir="./log/outputs_qwen3_06b_block${block}"
@@ -80,14 +86,8 @@ else
     DTYPE_CONFIG=""
 fi
 
-#--flag-gems-unused "_softmax,_softmax_backward_data,repeat_interleave.self_int,repeat_interleave.self_Tensor" \
-#--sequence-parallel \
-#--use-distributed-optimizer \
-#--profile \
-#--use-pytorch-profiler \
-#--profile-step-start 5 \
-#--profile-step-end 6 \
-#--use-flash-attn \
+trap 'echo -e "\n[Interrupted]"; kill 0; exit 130' INT TERM
+
 torchrun \
         --nproc_per_node ${nproc} \
         --nnodes ${nnodes} \
@@ -95,34 +95,37 @@ torchrun \
         --master_addr ${MASTER_ADDR} \
         --master_port ${MASTER_PORT} \
         flagscale/train/megatron/train_gpt.py \
+        --no-check-for-nan-in-loss-and-grad \
         --num-workers 16 \
         --tensor-model-parallel-size $tp \
         --pipeline-model-parallel-size $pp \
         --context-parallel-size 1 \
-        ${DTYPE_CONFIG} \
-        --use-flash-attn \
         --disable-bias-linear \
         --reset-position-ids \
         --reset-attention-mask \
         --qk-layernorm \
-        --distributed-backend flagcx \
+        --use-distributed-optimizer \
+        --recompute-granularity selective \
+        --recompute-modules mlp \
+        ${DTYPE_CONFIG} \
         --log-interval 1 \
         --tensorboard-log-interval 1 \
         --tensorboard-dir ${outdir}/tensorboard \
         --wandb-save-dir ${outdir}/wandb \
+        --save ${outdir}/checkpoints \
         --save-interval 10000 \
         --load ${load_dir} \
         --ckpt-format torch \
-        --save ${outdir}/checkpoints \
-        --transformer-impl local \
-        --legacy-tokenizer \
+        --transformer-impl transformer_engine \
+        --te-fl-prefer flagos \
         --enable-flag-gems \
+        --distributed-backend flagcx \
         --num-layers ${block} \
         --hidden-size 1024 \
         --ffn-hidden-size 3072 \
         --kv-channels 128 \
-        --group-query-attention \
         --num-attention-heads 16 \
+        --group-query-attention \
         --num-query-groups 8 \
         --seq-length ${seq_len} \
         --max-position-embeddings 40960 \
@@ -136,20 +139,16 @@ torchrun \
         --hidden-dropout 0.0 \
         --clip-grad 1.0 \
         --position-embedding-type rope \
-        --untie-embeddings-and-output-weights \
         --no-position-embedding \
         --no-rope-fusion \
-        --no-persist-layer-norm \
         --no-gradient-accumulation-fusion \
-        --no-masked-softmax-fusion \
-        --no-bias-gelu-fusion \
         --no-bias-swiglu-fusion \
         --no-bias-dropout-fusion \
         --seed 42 \
         --micro-batch-size ${mbs} \
         --global-batch-size ${gbs} \
         --eval-iters 0 \
-        --train-iters ${iters} \
+        --train-iters $iters \
         --weight-decay 0.1 \
         --adam-beta1 0.9 \
         --adam-beta2 0.95 \
@@ -160,14 +159,34 @@ torchrun \
         --data-path ${data_path} \
         --split 1 \
         --no-mmap-bin-files \
+        --legacy-tokenizer \
         --tokenizer-type QwenTokenizerFS \
         --tokenizer-path ${tokenizer_path} \
         --vocab-size 151851 \
         --make-vocab-size-divisible-by 64 2>&1 | stdbuf -o0 tee $workdir/log/stdout_$timelog.log.$config.qwen
 
+
+#--lr 0.003 \
 #--train-samples 29297664 \
 #--lr-warmup-samples 2048000 \
 #--train-iters $iters \
 #--lr-warmup-fraction 0.1 \
-
-
+#--transformer-impl local \
+#--no-persist-layer-norm \
+#--no-masked-softmax-fusion \
+#--no-bias-gelu-fusion \
+#--flag-gems-unused "_softmax,_softmax_backward_data,repeat_interleave.self_int,repeat_interleave.self_Tensor" \
+#--sequence-parallel \
+#--use-distributed-optimizer \
+#--profile \
+#--use-pytorch-profiler \
+#--profile-step-start 5 \
+#--profile-step-end 6 \
+#--use-flash-attn \
+#--log-params-norm \
+#--log-num-zeros-in-grad \
+#--log-throughput \
+#--flag-gems-log-path "./oplist.log" \
+#--recompute-granularity selective \
+#--recompute-modules mlp \
+#--untie-embeddings-and-output-weights \
