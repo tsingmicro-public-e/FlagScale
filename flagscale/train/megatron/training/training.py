@@ -818,6 +818,18 @@ def pretrain(
     # TODO(lixianduo): fix flag gems re-register error
     if args.enable_flag_gems:
         try:
+            #### Begin ####
+            _cache_base = os.environ.get("FLAGGEMS_TRITON_CACHE_DIR", "/tmp/flaggems_triton_cache")
+            rank = torch.distributed.get_rank()
+            os.environ["FLAGGEMS_CACHE_DIR"] = f"{_cache_base}/flaggems_cache_rank_{rank}"
+            os.environ["TRITON_CACHE_DIR"] = f"{_cache_base}/triton_cache_rank_{rank}"
+            import sys
+            from flag_gems.utils.code_cache import cache_dir_path as _fg_cdp
+            _fg_cdp.cache_clear()
+            _fg_libentry_mod = sys.modules.get("flag_gems.utils.libentry")
+            if _fg_libentry_mod is not None and hasattr(_fg_libentry_mod, "libcache"):
+                _fg_libentry_mod.libcache.__init__(None)
+            #### End ####
             import flag_gems
         except ImportError:
             raise RuntimeError("Failed to import 'flag_gems'. Please install flag_gems.")

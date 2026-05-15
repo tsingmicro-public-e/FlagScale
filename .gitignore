@@ -6,6 +6,7 @@ build
 *~
 slurm*
 logs
+log
 .vscode
 log_file/*
 outputs

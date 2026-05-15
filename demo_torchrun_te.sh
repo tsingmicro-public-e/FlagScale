@@ -28,15 +28,17 @@ echo $TXDA_VISIBLE_DEVICES
 MASTER_ADDR=127.0.0.1
 MASTER_PORT=8889
 
-#export GLOO_SOCKET_IFNAME=bond0
-#export NCCL_IB_DISABLE=1
+export GLOO_SOCKET_IFNAME=bond0
+export NCCL_IB_DISABLE=1
 
 export MG_PLATFORM="txda"
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export TXDA_LAUNCH_KERNEL_SYNC=1
+export CUDA_LAUNCH_BLOCKING=1  #TODO
 export TXDA_SKIP_OPS="contiguous,cat,to.dtype"
 export LOGLEVEL=INFO
 
+export NVTE_ALLOW_NONDETERMINISTIC_ALGO=0
 export NVTE_FLASH_ATTN=1
 export NVTE_FUSED_ATTN=1
 export NVTE_UNFUSED_ATTN=1
@@ -50,9 +52,9 @@ export PRECISION_PRIORITY=1
 
 ## ---- for debug log ----
 #export VS_DEBUG=1
-export TX_LOG_LEVEL=info
-export TX_LOG_PREFIX=1
-export TX_LAUNCH_LOG_LEVEL=info
+#export TX_LOG_LEVEL=info
+#export TX_LOG_PREFIX=1
+#export TX_LAUNCH_LOG_LEVEL=info
 #export PT_TXDA_LOG_LEVEL=FALLBACK
 #export NCCL_DEBUG=TRACE
 #export NCCL_DEBUG_FILE=$workdir/log/nccl_${timelog}_%h_%p.log
@@ -60,12 +62,12 @@ export TX_LAUNCH_LOG_LEVEL=info
 
 
 nnodes=1
-nproc=32
+nproc=8
 tp=1
 pp=1
 dp=$((($nnodes*$nproc)/($tp*$pp)))
 mbs=4
-gbs=$((4*$mbs*$dp))
+gbs=$((1*$mbs*$dp))
 block=28
 seq_len=4096
 dtype=bf16
