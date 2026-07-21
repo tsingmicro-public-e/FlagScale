@@ -818,8 +818,8 @@ def pretrain(
     # TODO(lixianduo): fix flag gems re-register error
     if args.enable_flag_gems:
         try:
-            #### Begin ####
-            _cache_base = os.environ.get("FLAGGEMS_TRITON_CACHE_DIR", "/tmp/flaggems_triton_cache")
+            #### NOTE(malin): Separate FlagGems logs and Triton build cache by GPU index/device. Add Begin ####
+            _cache_base = os.environ.get("FLAGGEMS_TRITON_CACHE_DIR", "/root/flaggems_triton_cache")
             rank = torch.distributed.get_rank()
             os.environ["FLAGGEMS_CACHE_DIR"] = f"{_cache_base}/flaggems_cache_rank_{rank}"
             os.environ["TRITON_CACHE_DIR"] = f"{_cache_base}/triton_cache_rank_{rank}"
@@ -829,7 +829,8 @@ def pretrain(
             _fg_libentry_mod = sys.modules.get("flag_gems.utils.libentry")
             if _fg_libentry_mod is not None and hasattr(_fg_libentry_mod, "libcache"):
                 _fg_libentry_mod.libcache.__init__(None)
-            #### End ####
+            #### NOTE(malin): Separate FlagGems logs and Triton build cache by GPU index/device. Add End ####
+
             import flag_gems
         except ImportError:
             raise RuntimeError("Failed to import 'flag_gems'. Please install flag_gems.")
@@ -2897,6 +2898,14 @@ def train(
         )
         if should_exit:
             break
+
+        ## NOTE(zhouss) stop early Begin
+        print(f"[FLAGSCALE] training_iteration={iteration}")
+        _stop_iter = os.environ.get('STOP_ITER')
+        if _stop_iter is not None and int(_stop_iter) == iteration:
+            print(f"stop iter: {iteration}")
+            break
+        ## NOTE(zhouss) stop early End
 
     one_logger_utils.track_e2e_metrics()
 

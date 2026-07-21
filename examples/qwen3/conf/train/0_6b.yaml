@@ -61,12 +61,9 @@ model:
   untie_embeddings_and_output_weights: false
   no_position_embedding: true
   no_rope_fusion: true
-  no_persist_layer_norm: true
   no_gradient_accumulation_fusion: true
-  no_masked_softmax_fusion: true
   no_bias_dropout_fusion: true
   no_bias_swiglu_fusion: true
-  no_bias_gelu_fusion: true
 
   # training
   seed: ${experiment.seed}
