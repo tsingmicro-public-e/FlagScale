@@ -40,4 +40,3 @@ class PlatformTXDA(PlatformBase):
 
     def amp_device_type(self) -> str:
         return "cuda"
-

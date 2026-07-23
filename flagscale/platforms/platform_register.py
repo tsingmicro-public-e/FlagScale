@@ -29,5 +29,3 @@ def register_platforms() -> None:
     platform_txda = PlatformTXDA()
     if platform_txda.is_available():
         PLATFORMS["txda"] = platform_txda
-
-
