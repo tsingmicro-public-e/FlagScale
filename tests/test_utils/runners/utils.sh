@@ -93,6 +93,22 @@ _gpu_fetch_nvidia() {
     mapfile -t mem_total < <(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null)
 }
 
+# Hygon's NVIDIA compatibility CLI does not implement memory query fields.
+# Query the DTK-backed Torch runtime directly instead.
+_gpu_fetch_hygon() {
+    local mem_output
+    mem_output=$(python - <<'PY'
+import torch
+
+for index in range(torch.cuda.device_count()):
+    free, total = torch.cuda.mem_get_info(index)
+    print(total - free, total)
+PY
+    ) || return 1
+    mapfile -t mem_used < <(echo "$mem_output" | awk '{print $1}')
+    mapfile -t mem_total < <(echo "$mem_output" | awk '{print $2}')
+}
+
 # Fetch mem_used[] and mem_total[] arrays for metax
 _gpu_fetch_metax() {
     local mem_output
@@ -116,15 +132,33 @@ _gpu_fetch_ascend() {
     mapfile -t mem_total < <(echo "$info" | awk -v idx=2 "$pci_awk")
 }
 
+# Fetch mem_used[] and mem_total[] arrays for MThreads MUSA.
+_gpu_fetch_musa() {
+    local mem_output
+    mem_output=$(mthreads-gmi 2>/dev/null | grep -oE '[0-9]+MiB\([0-9]+MiB\)' || true)
+    mapfile -t mem_used < <(echo "$mem_output" | sed -E 's/^([0-9]+)MiB.*/\1/')
+    mapfile -t mem_total < <(echo "$mem_output" | sed -E 's/^[0-9]+MiB\(([0-9]+)MiB\)/\1/')
+}
+
 # Common polling loop; args: <gpu_count> <fetch_fn>
 _gpu_poll_loop() {
     local gpu_count=$1 fetch_fn=$2
 
     while true; do
-        "$fetch_fn"
+        mem_used=()
+        mem_total=()
+        if ! "$fetch_fn"; then
+            log_error "Unable to query accelerator memory"
+            return 1
+        fi
         local need_wait=false max_pct=0
         for ((i=0; i<gpu_count; i++)); do
-            [ -z "${mem_total[i]}" ] || [ "${mem_total[i]}" -eq 0 ] && continue
+            if ! [[ "${mem_used[i]:-}" =~ ^[0-9]+$ ]] || \
+                ! [[ "${mem_total[i]:-}" =~ ^[0-9]+$ ]]; then
+                log_error "Unable to query numeric memory values for accelerator $i"
+                return 1
+            fi
+            [ "${mem_total[i]}" -eq 0 ] && continue
             local pct=$(( mem_used[i] * 100 / mem_total[i] ))
             [ $pct -gt $max_pct ] && max_pct=$pct
             [ $pct -gt 50 ] && { need_wait=true; break; }
@@ -138,7 +172,10 @@ _gpu_poll_loop() {
 
 wait_for_gpu() {
     local gpu_count fetch_fn
-    if command -v nvidia-smi &>/dev/null; then
+    if [ "${PLATFORM:-}" = hygon ]; then
+        gpu_count=$(python -c 'import torch; print(torch.cuda.device_count())') || return 1
+        fetch_fn=_gpu_fetch_hygon
+    elif command -v nvidia-smi &>/dev/null; then
         gpu_count=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l)
         fetch_fn=_gpu_fetch_nvidia
     elif command -v mx-smi &>/dev/null; then
@@ -147,10 +184,17 @@ wait_for_gpu() {
     elif command -v npu-smi &>/dev/null; then
         gpu_count=$(npu-smi info -l 2>/dev/null | awk '/Total Count/{print $NF}')
         fetch_fn=_gpu_fetch_ascend
+    elif command -v mthreads-gmi &>/dev/null; then
+        gpu_count=$(mthreads-gmi 2>/dev/null | grep -c 'MTT S5000' || true)
+        fetch_fn=_gpu_fetch_musa
     else
         return 0
     fi
-    [ -z "$gpu_count" ] || [ "$gpu_count" -eq 0 ] && return 0
+    if ! [[ "$gpu_count" =~ ^[0-9]+$ ]]; then
+        log_error "Unable to determine accelerator count"
+        return 1
+    fi
+    [ "$gpu_count" -eq 0 ] && return 0
     _gpu_poll_loop "$gpu_count" "$fetch_fn"
 }
 
@@ -159,6 +203,7 @@ default_dist_backend() {
     case "$platform" in
         ascend) echo "hccl" ;;
         metax) echo "${FLAGSCALE_TEST_METAX_BACKEND:-nccl}" ;;
+        musa) echo "mccl" ;;
         *) echo "nccl" ;;
     esac
 }
@@ -167,6 +212,7 @@ default_torch_device_type() {
     local platform="${1:-}"
     case "$platform" in
         ascend) echo "npu" ;;
+        musa) echo "musa" ;;
         *) echo "cuda" ;;
     esac
 }
@@ -198,6 +244,19 @@ elif hasattr(torch, "cuda") and hasattr(torch.cuda, "device_count"):
     print(torch.cuda.device_count())
 else:
     print(1)
+PY
+            } | awk '/^[0-9]+$/ { value=$1 } END { print value ? value : 1 }'
+            ;;
+        musa)
+            {
+                python - <<'PY' 2>/dev/null || true
+import torch
+try:
+    import torch_musa  # noqa: F401
+except Exception:
+    pass
+device_count = getattr(getattr(torch, "musa", None), "device_count", None)
+print(device_count() if callable(device_count) else 1)
 PY
             } | awk '/^[0-9]+$/ { value=$1 } END { print value ? value : 1 }'
             ;;

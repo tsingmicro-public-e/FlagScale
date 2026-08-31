@@ -1168,18 +1168,6 @@ def pretrain(
 
     ########## FlagScale Begin ##########
     args = get_args()
-    if args.mg_fl_prefer:
-        os.environ['MG_FL_PREFER'] = args.mg_fl_prefer
-    # enable flagos:triton / vendor:cuda / reference:torch backend for transformer engine fl
-    if args.te_fl_prefer:
-        os.environ['TE_FL_PREFER'] = args.te_fl_prefer
-    if args.te_fl_per_op:
-        os.environ['TE_FL_PER_OP'] = args.te_fl_per_op
-    if args.te_fl_allow_vendors:
-        os.environ['TE_FL_ALLOW_VENDORS'] = args.te_fl_allow_vendors
-    if args.te_fl_deny_vendors:
-        os.environ['TE_FL_DENY_VENDORS'] = args.te_fl_deny_vendors
-
     # enable flag gems to replace torch ops for distributed training
     # TODO(lixianduo): fix flag gems re-register error
     if args.enable_flag_gems:
@@ -2855,7 +2843,8 @@ def save_checkpoint_and_time(
 
     # Stop timer to get accurate train interval time and exclude checkpointing duration
     timers('interval-time').stop()
-    energy_monitor.pause()
+    if args.log_energy:
+        energy_monitor.pause()
 
     # Extra barrier is added to make sure all ranks report the max time.
     timer_key = 'save-checkpoint-non-persistent' if non_persistent_ckpt else 'save-checkpoint'
@@ -2913,7 +2902,8 @@ def save_checkpoint_and_time(
         )
 
     # Recover timing
-    energy_monitor.resume()
+    if args.log_energy:
+        energy_monitor.resume()
     timers('interval-time', log_level=0).start(barrier=True)
 
 
@@ -3419,6 +3409,7 @@ def train(
             ),
             on_trace_ready=trace_handler,
             record_shapes=args.pytorch_profiler_collect_shapes,
+            profile_memory=args.pytorch_profiler_collect_memory,
             with_stack=args.pytorch_profiler_collect_callstack,
             execution_trace_observer=et,
         )
